@@ -14,8 +14,12 @@ return new class extends Migration
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->enum('status', ['menunggu', 'diproses', 'dikirim', 'selesai'])->default('menunggu');
             $table->decimal('total', 15, 2);
+            $table->string('shipping_method')->nullable();
+            $table->decimal('shipping_cost', 15, 2)->default(0);
+            $table->string('payment_method')->nullable();
+            $table->enum('payment_status', ['pending','paid','failed'])->default('pending');
+            $table->enum('status', ['menunggu','diproses','dikirim','selesai'])->default('menunggu');
             $table->timestamps();
         });
     }
