@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Controllers\Api\TransactionController;
+use App\Http\Controllers\Api\AdminController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -33,4 +34,19 @@ Route::middleware(['auth:sanctum', RoleMiddleware::class . ':penjual'])->group(f
     Route::post('products', [ProductController::class, 'store']);
     Route::put('products/{product}', [ProductController::class, 'update']);
     Route::delete('products/{product}', [ProductController::class, 'destroy']);
+});
+
+Route::middleware(['auth:sanctum', RoleMiddleware::class . ':admin'])->group(function () {
+    // Kelola user
+    Route::get('admin/users', [AdminController::class, 'listUsers']);
+    Route::get('admin/users/{user}', [AdminController::class, 'showUser']);
+    Route::patch('admin/users/{user}', [AdminController::class, 'updateUser']);
+    Route::delete('admin/users/{user}', [AdminController::class, 'deleteUser']);
+
+    // Monitoring transaksi
+    Route::get('admin/orders', [AdminController::class, 'allOrders']);
+    Route::get('admin/orders/{order}', [AdminController::class, 'showOrder']);
+
+    // Laporan penjualan
+    Route::get('admin/reports/sales', [AdminController::class, 'salesReport']);
 });
