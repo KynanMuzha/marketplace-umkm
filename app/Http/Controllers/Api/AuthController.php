@@ -6,10 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\OtpMail;
 
 class AuthController extends Controller
 {
+    // ======================
     // REGISTER
+    // ======================
     public function register(Request $request)
     {
         $validated = $request->validate([
@@ -32,8 +36,10 @@ class AuthController extends Controller
         ], 201);
     }
 
+    // ======================
     // LOGIN
-        public function login(Request $request)
+    // ======================
+    public function login(Request $request)
     {
         $request->validate([
             'email' => 'required|email',
@@ -56,8 +62,10 @@ class AuthController extends Controller
             'token' => $token
         ]);
     }
-    
+
+    // ======================
     // LOGOUT
+    // ======================
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
@@ -67,9 +75,76 @@ class AuthController extends Controller
         ]);
     }
 
+    // ======================
     // PROFILE
+    // ======================
     public function profile(Request $request)
     {
         return response()->json($request->user());
     }
+
+    // ======================
+    // FORGOT PASSWORD (KIRIM OTP)
+    // ======================
+    public function forgotPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email'
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return response()->json(['message' => 'Email tidak ditemukan'], 404);
+        }
+
+        $otp = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+
+        $user->otp = $otp;
+        $user->otp_expires_at = now()->addMinutes(5);
+        $user->save(); // <<< INI WAJIB
+
+        Mail::to($user->email)->send(new OtpMail($otp));
+
+        return response()->json([
+            'message' => 'OTP berhasil dikirim',
+        ]);
+    }
+
+    // ======================
+    // RESET PASSWORD
+    // ======================
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'otp' => 'required|string',
+            'password' => 'required|min:6|confirmed',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
+        }
+
+        if (!$user->otp || $user->otp !== $request->otp) {
+            return response()->json(['message' => 'OTP tidak valid'], 400);
+        }
+
+        if ($user->otp_expires_at && now()->greaterThan($user->otp_expires_at)) {
+            return response()->json(['message' => 'OTP sudah kadaluarsa'], 400);
+        }
+
+        $user->update([
+            'password' => bcrypt($request->password),
+            'otp' => null,
+            'otp_expires_at' => null
+        ]);
+
+        return response()->json([
+            'message' => 'Password berhasil diubah'
+        ]);
+    }
+
 }
