@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\ProfileController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -56,4 +57,15 @@ Route::middleware(['auth:sanctum', RoleMiddleware::class . ':admin'])->group(fun
 
     // Laporan penjualan
     Route::get('admin/reports/sales', [AdminController::class, 'salesReport']);
+});
+
+Route::middleware('auth:sanctum')->group(function () {
+
+    Route::get('/profile', [ProfileController::class, 'show']);
+    Route::put('/profile', [ProfileController::class, 'update']);
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword']);
+
+    Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar']);
+    Route::delete('/profile/avatar', [ProfileController::class, 'deleteAvatar']);
+
 });
