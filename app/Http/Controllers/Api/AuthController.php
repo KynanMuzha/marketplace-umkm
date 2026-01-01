@@ -11,46 +11,50 @@ use App\Mail\OtpMail;
 
 class AuthController extends Controller
 {
-    // ======================
-    // REGISTER
-    // ======================
+    /*
+    |--------------------------------------------------------------------------
+    | REGISTER
+    |--------------------------------------------------------------------------
+    */
     public function register(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string',
-            'email' => 'required|email|unique:users,email',
+            'name'     => 'required|string|max:255',
+            'email'    => 'required|email|unique:users,email',
             'password' => 'required|min:6',
-            'role' => 'required|in:admin,penjual,pembeli'
+            'role'     => 'required|in:admin,penjual,pembeli',
         ]);
 
         $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
+            'name'     => $validated['name'],
+            'email'    => $validated['email'],
             'password' => bcrypt($validated['password']),
-            'role' => $validated['role'],
+            'role'     => $validated['role'],
         ]);
 
         return response()->json([
             'message' => 'Registrasi berhasil',
-            'user' => $user
+            'user'    => $user,
         ], 201);
     }
 
-    // ======================
-    // LOGIN
-    // ======================
+    /*
+    |--------------------------------------------------------------------------
+    | LOGIN
+    |--------------------------------------------------------------------------
+    */
     public function login(Request $request)
     {
         $request->validate([
-            'email' => 'required|email',
-            'password' => 'required'
+            'email'    => 'required|email',
+            'password' => 'required',
         ]);
 
         $user = User::where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
-                'message' => 'Email atau password salah'
+                'message' => 'Email atau password salah',
             ], 401);
         }
 
@@ -58,51 +62,50 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Login berhasil',
-            'user' => $user,
-            'token' => $token
+            'user'    => $user, // avatar BIAR DIHANDLE ProfileController
+            'token'   => $token,
         ]);
     }
 
-    // ======================
-    // LOGOUT
-    // ======================
+    /*
+    |--------------------------------------------------------------------------
+    | LOGOUT
+    |--------------------------------------------------------------------------
+    */
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
 
         return response()->json([
-            'message' => 'Logout berhasil'
+            'message' => 'Logout berhasil',
         ]);
     }
 
-    // ======================
-    // PROFILE
-    // ======================
-    public function profile(Request $request)
-    {
-        return response()->json($request->user());
-    }
-
-    // ======================
-    // FORGOT PASSWORD (KIRIM OTP)
-    // ======================
+    /*
+    |--------------------------------------------------------------------------
+    | FORGOT PASSWORD (KIRIM OTP)
+    |--------------------------------------------------------------------------
+    */
     public function forgotPassword(Request $request)
     {
         $request->validate([
-            'email' => 'required|email'
+            'email' => 'required|email',
         ]);
 
         $user = User::where('email', $request->email)->first();
 
         if (!$user) {
-            return response()->json(['message' => 'Email tidak ditemukan'], 404);
+            return response()->json([
+                'message' => 'Email tidak ditemukan',
+            ], 404);
         }
 
         $otp = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
 
-        $user->otp = $otp;
-        $user->otp_expires_at = now()->addMinutes(5);
-        $user->save(); // <<< INI WAJIB
+        $user->update([
+            'otp'             => $otp,
+            'otp_expires_at'  => now()->addMinutes(5),
+        ]);
 
         Mail::to($user->email)->send(new OtpMail($otp));
 
@@ -111,15 +114,17 @@ class AuthController extends Controller
         ]);
     }
 
-    // ======================
-    // RESET PASSWORD
-    // ======================
+    /*
+    |--------------------------------------------------------------------------
+    | RESET PASSWORD
+    |--------------------------------------------------------------------------
+    */
     public function resetPassword(Request $request)
     {
         $request->validate([
-            'email' => 'required|email',
-            'otp' => 'required|string',
-            'password' => 'required|min:6|confirmed',
+            'email'                 => 'required|email',
+            'otp'                   => 'required|string',
+            'password'              => 'required|min:6|confirmed',
         ]);
 
         $user = User::where('email', $request->email)->first();
@@ -128,7 +133,7 @@ class AuthController extends Controller
             return response()->json(['message' => 'User tidak ditemukan'], 404);
         }
 
-        if (!$user->otp || $user->otp !== $request->otp) {
+        if ($user->otp !== $request->otp) {
             return response()->json(['message' => 'OTP tidak valid'], 400);
         }
 
@@ -137,14 +142,13 @@ class AuthController extends Controller
         }
 
         $user->update([
-            'password' => bcrypt($request->password),
-            'otp' => null,
-            'otp_expires_at' => null
+            'password'        => bcrypt($request->password),
+            'otp'             => null,
+            'otp_expires_at'  => null,
         ]);
 
         return response()->json([
-            'message' => 'Password berhasil diubah'
+            'message' => 'Password berhasil diubah',
         ]);
     }
-
 }

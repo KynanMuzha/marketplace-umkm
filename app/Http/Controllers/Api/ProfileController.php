@@ -5,20 +5,27 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class ProfileController extends Controller
 {
     // ======================
-    // 1️⃣ LIHAT PROFIL
+    // LIHAT PROFIL
     // ======================
     public function show(Request $request)
     {
-        return response()->json($request->user());
+        $user = $request->user();
+
+        if ($user->avatar) {
+            $user->avatar = asset('storage/' . $user->avatar);
+        }
+
+        return response()->json($user);
     }
 
     // ======================
-    // 2️⃣ UPDATE PROFIL
+    // UPDATE PROFIL
     // ======================
     public function update(Request $request)
     {
@@ -33,10 +40,7 @@ class ProfileController extends Controller
             ]
         ]);
 
-        $user->update([
-            'name'  => $request->name,
-            'email' => $request->email
-        ]);
+        $user->update($request->only('name', 'email'));
 
         return response()->json([
             'message' => 'Profil berhasil diperbarui',
@@ -45,7 +49,7 @@ class ProfileController extends Controller
     }
 
     // ======================
-    // 3️⃣ UPDATE PASSWORD
+    // UPDATE PASSWORD
     // ======================
     public function updatePassword(Request $request)
     {
@@ -57,22 +61,18 @@ class ProfileController extends Controller
         $user = $request->user();
 
         if (!Hash::check($request->old_password, $user->password)) {
-            return response()->json([
-                'message' => 'Password lama salah'
-            ], 400);
+            return response()->json(['message' => 'Password lama salah'], 400);
         }
 
         $user->update([
             'password' => bcrypt($request->password)
         ]);
 
-        return response()->json([
-            'message' => 'Password berhasil diubah'
-        ]);
+        return response()->json(['message' => 'Password berhasil diubah']);
     }
 
     // ======================
-    // 4️⃣ UPLOAD FOTO PROFIL
+    // UPLOAD AVATAR
     // ======================
     public function uploadAvatar(Request $request)
     {
@@ -82,40 +82,36 @@ class ProfileController extends Controller
 
         $user = $request->user();
 
-        // Hapus foto lama
-        if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
+        if ($user->avatar) {
             Storage::disk('public')->delete($user->avatar);
         }
 
         $path = $request->file('avatar')->store('avatars', 'public');
-
-        $user->update([
-            'avatar' => $path
-        ]);
+        $user->avatar = $path;
+        $user->save();
 
         return response()->json([
-            'message' => 'Foto profil berhasil diperbarui',
+            'message' => 'Avatar berhasil diupload',
             'avatar' => asset('storage/' . $path)
         ]);
     }
 
     // ======================
-    // 5️⃣ HAPUS FOTO PROFIL
+    // DELETE AVATAR
     // ======================
     public function deleteAvatar(Request $request)
     {
         $user = $request->user();
 
-        if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
+        if ($user->avatar) {
             Storage::disk('public')->delete($user->avatar);
         }
 
-        $user->update([
-            'avatar' => null
-        ]);
+        $user->avatar = null;
+        $user->save();
 
         return response()->json([
-            'message' => 'Foto profil berhasil dihapus'
+            'message' => 'Avatar berhasil dihapus'
         ]);
     }
 }

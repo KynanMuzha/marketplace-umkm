@@ -3,69 +3,59 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProductController;
-use App\Http\Middleware\RoleMiddleware;
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Middleware\RoleMiddleware;
 
-// Public routes
+/*PUBLIC ROUTES*/
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
-// Routes untuk semua user login
+/*AUTHENTICATED ROUTES*/
 Route::middleware('auth:sanctum')->group(function () {
 
+    // AUTH
     Route::post('/logout', [AuthController::class, 'logout']);
-    Route::get('/profile', [AuthController::class, 'profile']);
 
-    // Produk: lihat daftar & detail (pembeli & penjual)
+    // PROFILE (SATU SUMBER DATA USER)
+    Route::get('/profile', [ProfileController::class, 'show']);
+    Route::put('/profile', [ProfileController::class, 'update']);
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword']);
+    Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar']);
+    Route::delete('/profile/avatar', [ProfileController::class, 'deleteAvatar']);
+
+    // PRODUCTS (VIEW)
     Route::get('products', [ProductController::class, 'index']);
     Route::get('products/{product}', [ProductController::class, 'show']);
 
-    // Transaction
+    // CART & TRANSACTION
     Route::post('cart/add', [TransactionController::class, 'addToCart']);
     Route::patch('cart/update', [TransactionController::class, 'updateCartQuantity']);
     Route::get('cart', [TransactionController::class, 'cart']);
     Route::post('checkout', [TransactionController::class, 'checkout']);
     Route::get('orders/history', [TransactionController::class, 'history']);
-    Route::patch(
-        'orders/{order}/status',
-        [TransactionController::class, 'updateStatus']
-    ); // admin/penjual
-
+    Route::patch('orders/{order}/status', [TransactionController::class, 'updateStatus']);
 });
 
-// Produk: CRUD hanya untuk penjual
+/*PENJUAL ROUTES*/
 Route::middleware(['auth:sanctum', RoleMiddleware::class . ':penjual'])->group(function () {
     Route::post('products', [ProductController::class, 'store']);
     Route::put('products/{product}', [ProductController::class, 'update']);
     Route::delete('products/{product}', [ProductController::class, 'destroy']);
 });
 
+/*ADMIN ROUTES*/
 Route::middleware(['auth:sanctum', RoleMiddleware::class . ':admin'])->group(function () {
-    // Kelola user
+
     Route::get('admin/users', [AdminController::class, 'listUsers']);
     Route::get('admin/users/{user}', [AdminController::class, 'showUser']);
     Route::patch('admin/users/{user}', [AdminController::class, 'updateUser']);
     Route::delete('admin/users/{user}', [AdminController::class, 'deleteUser']);
 
-    // Monitoring transaksi
     Route::get('admin/orders', [AdminController::class, 'allOrders']);
     Route::get('admin/orders/{order}', [AdminController::class, 'showOrder']);
-
-    // Laporan penjualan
     Route::get('admin/reports/sales', [AdminController::class, 'salesReport']);
-});
-
-Route::middleware('auth:sanctum')->group(function () {
-
-    Route::get('/profile', [ProfileController::class, 'show']);
-    Route::put('/profile', [ProfileController::class, 'update']);
-    Route::put('/profile/password', [ProfileController::class, 'updatePassword']);
-
-    Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar']);
-    Route::delete('/profile/avatar', [ProfileController::class, 'deleteAvatar']);
-
 });
