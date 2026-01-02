@@ -14,6 +14,10 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
+// PRODUCTS (VIEW)
+Route::get('products', [ProductController::class, 'index']);
+Route::get('products/{product}', [ProductController::class, 'show']);
+
 /*AUTHENTICATED ROUTES*/
 Route::middleware('auth:sanctum')->group(function () {
 
@@ -27,9 +31,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar']);
     Route::delete('/profile/avatar', [ProfileController::class, 'deleteAvatar']);
 
-    // PRODUCTS (VIEW)
-    Route::get('products', [ProductController::class, 'index']);
-    Route::get('products/{product}', [ProductController::class, 'show']);
 
     // CART & TRANSACTION
     Route::post('cart/add', [TransactionController::class, 'addToCart']);
