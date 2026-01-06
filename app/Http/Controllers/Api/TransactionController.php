@@ -29,12 +29,37 @@ class TransactionController extends Controller
             return response()->json(['message' => "Stok {$product->name} tidak cukup"], 400);
         }
 
-        $cart = Cart::updateOrCreate(
-            ['user_id' => auth()->id(), 'product_id' => $request->product_id],
-            ['quantity' => $request->quantity]
-        );
+        $cart = Cart::where('user_id', auth()->id())
+            ->where('product_id', $request->product_id)
+            ->first();
 
-        return response()->json(['message' => 'Produk berhasil ditambahkan ke keranjang', 'cart' => $cart]);
+        if ($cart) {
+            // Produk sudah ada, tambah quantity
+            $newQty = $cart->quantity + $request->quantity;
+
+            if ($newQty > $product->stock) {
+                return response()->json(['message' => "Stok {$product->name} tidak cukup"], 400);
+            }
+
+            $cart->quantity = $newQty;
+            $cart->save();
+        } else {
+            // Produk belum ada, buat baru
+            if ($request->quantity > $product->stock) {
+                return response()->json(['message' => "Stok {$product->name} tidak cukup"], 400);
+            }
+
+            $cart = Cart::create([
+                'user_id' => auth()->id(),
+                'product_id' => $request->product_id,
+                'quantity' => $request->quantity
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Produk berhasil ditambahkan ke keranjang',
+            'cart' => $cart
+        ]);
     }
 
     // 2️⃣ Lihat keranjang (pembeli saja)
