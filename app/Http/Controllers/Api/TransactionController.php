@@ -86,6 +86,32 @@ class TransactionController extends Controller
         return response()->json(['message' => 'Jumlah produk di keranjang berhasil diperbarui', 'cart' => $cart]);
     }
 
+    // 3️⃣b Hapus produk dari keranjang (pembeli saja)
+    public function removeFromCart($id)
+    {
+        if (auth()->user()->role !== 'pembeli') {
+            return response()->json([
+                'message' => 'Hanya pembeli yang bisa menghapus keranjang.'
+            ], 403);
+        }
+
+        $cart = Cart::where('id', $id)
+            ->where('user_id', auth()->id())
+            ->first();
+
+        if (!$cart) {
+            return response()->json([
+                'message' => 'Produk tidak ditemukan di keranjang'
+            ], 404);
+        }
+
+        $cart->delete();
+
+        return response()->json([
+            'message' => 'Produk berhasil dihapus dari keranjang'
+        ]);
+    }
+
     // 4️⃣ Checkout (pembeli saja)
     public function checkout(Request $request)
     {

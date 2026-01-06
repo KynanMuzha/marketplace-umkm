@@ -36,6 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('cart/add', [TransactionController::class, 'addToCart']);
     Route::patch('cart/update', [TransactionController::class, 'updateCartQuantity']);
     Route::get('cart', [TransactionController::class, 'cart']);
+    Route::delete('cart/{id}', [TransactionController::class, 'removeFromCart']);
     Route::post('checkout', [TransactionController::class, 'checkout']);
     Route::get('orders/history', [TransactionController::class, 'history']);
     Route::patch('orders/{order}/status', [TransactionController::class, 'updateStatus']);
