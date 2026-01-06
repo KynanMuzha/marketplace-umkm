@@ -44,7 +44,12 @@ class TransactionController extends Controller
             return response()->json(['message' => 'Hanya pembeli yang bisa melihat keranjang.'], 403);
         }
 
-        $cart = Cart::with('product')->where('user_id', auth()->id())->get();
+        $cart = Cart::with([
+            'product.user',      // 🔥 UNTUK NAMA TOKO
+            'product.category'
+        ])
+        ->where('user_id', auth()->id())
+        ->get();
 
         return response()->json($cart);
     }
