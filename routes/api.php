@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Middleware\RoleMiddleware;
+use App\Http\Controllers\Api\CategoryController;
 
 /*PUBLIC ROUTES*/
 Route::post('/register', [AuthController::class, 'register']);
@@ -17,6 +18,9 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 // PRODUCTS (VIEW)
 Route::get('products', [ProductController::class, 'index']);
 Route::get('products/{product}', [ProductController::class, 'show']);
+
+// ✅ CATEGORY (PUBLIC) — INI YANG KURANG
+Route::get('categories', [CategoryController::class, 'index']);
 
 /*AUTHENTICATED ROUTES*/
 Route::middleware('auth:sanctum')->group(function () {
@@ -51,6 +55,10 @@ Route::middleware(['auth:sanctum', RoleMiddleware::class . ':penjual'])->group(f
 
 /*ADMIN ROUTES*/
 Route::middleware(['auth:sanctum', RoleMiddleware::class . ':admin'])->group(function () {
+
+    Route::post('admin/categories', [CategoryController::class, 'store']);
+    Route::put('admin/categories/{category}', [CategoryController::class, 'update']);
+    Route::delete('admin/categories/{category}', [CategoryController::class, 'destroy']);
 
     Route::get('admin/users', [AdminController::class, 'listUsers']);
     Route::get('admin/users/{user}', [AdminController::class, 'showUser']);

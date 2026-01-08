@@ -145,48 +145,83 @@ class TransactionController extends Controller
         }
 
         $request->validate([
-            'shipping_method' => 'required|string',
-            'shipping_cost'   => 'required|numeric|min:0',
-            'payment_method'  => 'required|string'
+            'delivery_type'  => 'required|in:DELIVERY,PICKUP',
+            'shipping_cost'  => 'nullable|numeric|min:0',
+            'payment_method' => 'required|in:QRIS,TF_BANK,E_WALLET,COD',
+            'payment_detail' => 'nullable|string',
+            'items'          => 'required|array|min:1',
+            'items.*.product_id' => 'required|exists:products,id',
+            'items.*.quantity'   => 'required|integer|min:1',
         ]);
 
         $userId = auth()->id();
-        $cartItems = Cart::with('product')->where('user_id', $userId)->get();
 
-        if ($cartItems->isEmpty()) {
-            return response()->json(['message' => 'Keranjang kosong'], 400);
+        if ($request->delivery_type === 'PICKUP') {
+            $shippingMethod = 'AMBIL_DI_TOKO';
+            $shippingCost = 0;
+        } else {
+            $shippingMethod = 'DIANTAR_TOKO';
+            $shippingCost = $request->shipping_cost ?? 0;
         }
 
+        // Ambil item yang dikirim dari request
+        $cartItems = Cart::with('product')
+            ->where('user_id', $userId)
+            ->whereIn('product_id', collect($request->items)->pluck('product_id'))
+            ->get();
+
+        if ($cartItems->isEmpty()) {
+            return response()->json(['message' => 'Keranjang kosong atau item tidak valid'], 400);
+        }
+
+        // cek stok
         foreach ($cartItems as $item) {
-            if ($item->quantity > $item->product->stock) {
+            $reqQty = collect($request->items)
+                ->firstWhere('product_id', $item->product_id)['quantity'] ?? 0;
+            if ($reqQty > $item->product->stock) {
                 return response()->json(['message' => "Stok {$item->product->name} tidak cukup"], 400);
             }
         }
 
-        $subtotal = $cartItems->sum(fn($item) => $item->product->price * $item->quantity);
-        $total = $subtotal + $request->shipping_cost;
+        $subtotal = 0;
+        foreach ($cartItems as $item) {
+            $reqQty = collect($request->items)
+                ->firstWhere('product_id', $item->product_id)['quantity'];
+            $subtotal += $item->product->price * $reqQty;
+        }
 
+        $total = $subtotal + $shippingCost;
+
+        // saat buat order
         $order = Order::create([
             'user_id'         => $userId,
             'total'           => $total,
-            'shipping_method' => $request->shipping_method,
-            'shipping_cost'   => $request->shipping_cost,
+            'shipping_method' => $shippingMethod,
+            'shipping_cost'   => $shippingCost,
             'payment_method'  => $request->payment_method,
+            'payment_detail'  => $request->payment_detail,
             'payment_status'  => 'pending',
+            'payment_code'    => rand(100000, 999999), // kode pembayaran 6 digit
+            'payment_due'     => now()->addHours(24),  // tenggat bayar 24 jam
         ]);
 
+        // buat order item & kurangi stok
         foreach ($cartItems as $item) {
+            $reqQty = collect($request->items)
+                ->firstWhere('product_id', $item->product_id)['quantity'];
+
             OrderItem::create([
                 'order_id'   => $order->id,
                 'product_id' => $item->product_id,
-                'quantity'   => $item->quantity,
+                'quantity'   => $reqQty,
                 'price'      => $item->product->price
             ]);
 
-            $item->product->decrement('stock', $item->quantity);
-        }
+            $item->product->decrement('stock', $reqQty);
 
-        Cart::where('user_id', $userId)->delete();
+            // hapus dari cart
+            $item->delete();
+        }
 
         return response()->json(['message' => 'Checkout berhasil', 'order' => $order]);
     }
