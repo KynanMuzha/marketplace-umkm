@@ -8,16 +8,34 @@ use App\Models\Product;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
 
-    class ProductController extends Controller
+class ProductController extends Controller
+{
+    /**
+     * 🟢 LIST PRODUK (BUYER)
+     * - hanya active
+     * - stok > 0
+     * - optional filter category
+     */
+    public function index(Request $request)
     {
-        public function index()
-    {
-        return Product::with('category', 'user')
+        $query = Product::with('category', 'user')
             ->where('status', 'active')
-            ->where('stock', '>', 0)
-            ->get();
+            ->where('stock', '>', 0);
+
+        // filter kategori (optional)
+        if ($request->has('category')) {
+            $categoryName = $request->query('category');
+            $query->whereHas('category', function ($q) use ($categoryName) {
+                $q->where('name', $categoryName);
+            });
+        }
+
+        return response()->json($query->get());
     }
 
+    /**
+     * 🔐 LIST PRODUK SELLER (PAGINATION)
+     */
     public function sellerIndex(Request $request)
     {
         $perPage = $request->per_page ?? 4;
@@ -27,6 +45,9 @@ use Illuminate\Support\Facades\Auth;
             ->paginate($perPage);
     }
 
+    /**
+     * ➕ TAMBAH PRODUK
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -35,7 +56,7 @@ use Illuminate\Support\Facades\Auth;
             'price'       => 'required|numeric',
             'stock'       => 'required|numeric',
             'description' => 'nullable|string',
-            'image'       => 'nullable|image|max:2048'
+            'image'       => 'nullable|image|max:2048',
         ]);
 
         $imagePath = null;
@@ -44,28 +65,34 @@ use Illuminate\Support\Facades\Auth;
         }
 
         $product = Product::create([
-            'user_id' => Auth::id(),
+            'user_id'     => Auth::id(),
             'category_id' => $request->category_id,
             'name'        => $request->name,
             'description' => $request->description,
             'price'       => $request->price,
             'stock'       => $request->stock,
             'image'       => $imagePath,
+            'status'      => 'active',
         ]);
 
         return response()->json($product, 201);
     }
 
+    /**
+     * 🔍 DETAIL PRODUK
+     */
     public function show($id)
     {
         return Product::with('category', 'user')->findOrFail($id);
     }
 
+    /**
+     * ✏️ UPDATE PRODUK
+     */
     public function update(Request $request, $id)
     {
         $product = Product::findOrFail($id);
 
-        // 🔐 Cek kepemilikan produk
         if ($product->user_id !== Auth::id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
@@ -76,17 +103,15 @@ use Illuminate\Support\Facades\Auth;
             'price'       => 'sometimes|numeric',
             'stock'       => 'sometimes|numeric',
             'description' => 'sometimes|nullable|string',
-            'image'       => 'sometimes|image|max:2048'
+            'image'       => 'sometimes|image|max:2048',
         ]);
 
         $product->fill($request->except('image'));
 
-        // Jika upload gambar baru
         if ($request->hasFile('image')) {
             if ($product->image && Storage::disk('public')->exists($product->image)) {
                 Storage::disk('public')->delete($product->image);
             }
-
             $product->image = $request->file('image')->store('products', 'public');
         }
 
@@ -94,10 +119,13 @@ use Illuminate\Support\Facades\Auth;
 
         return response()->json([
             'message' => 'Produk berhasil diupdate',
-            'data' => $product
+            'data' => $product,
         ]);
     }
 
+    /**
+     * 🗑 HAPUS PRODUK
+     */
     public function destroy($id)
     {
         $product = Product::findOrFail($id);
@@ -115,25 +143,30 @@ use Illuminate\Support\Facades\Auth;
         return response()->json(['message' => 'Produk berhasil dihapus']);
     }
 
+    /**
+     * 🔄 TOGGLE STATUS PRODUK
+     */
     public function toggleStatus($id)
     {
-        // Cari produk yang dimiliki penjual login
         $product = Product::where('id', $id)
-                        ->where('user_id', Auth::id())
-                        ->first();
+            ->where('user_id', Auth::id())
+            ->first();
 
         if (!$product) {
-            return response()->json(['message' => 'Produk tidak ditemukan atau bukan milik Anda'], 404);
+            return response()->json([
+                'message' => 'Produk tidak ditemukan atau bukan milik Anda',
+            ], 404);
         }
 
-        // Toggle status
-        $product->status = $product->status === 'active' ? 'inactive' : 'active';
+        $product->status = $product->status === 'active'
+            ? 'inactive'
+            : 'active';
+
         $product->save();
 
         return response()->json([
             'message' => 'Status produk berhasil diperbarui',
-            'status' => $product->status
+            'status'  => $product->status,
         ]);
     }
-
 }

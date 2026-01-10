@@ -9,10 +9,12 @@ class Cart extends Model
     protected $fillable = ['user_id', 'product_id', 'quantity'];
 
     public function product() {
-        return $this->belongsTo(Product::class);
+        // withDefault() mencegah error kalau product sudah dihapus
+        return $this->belongsTo(Product::class)->withDefault();
     }
 
     public function user() {
-        return $this->belongsTo(User::class);
+        // withDefault() mencegah error kalau user sudah dihapus
+        return $this->belongsTo(User::class)->withDefault();
     }
 }
