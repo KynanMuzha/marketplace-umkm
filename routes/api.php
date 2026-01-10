@@ -51,6 +51,8 @@ Route::middleware(['auth:sanctum', RoleMiddleware::class . ':penjual'])->group(f
     Route::post('products', [ProductController::class, 'store']);
     Route::put('products/{product}', [ProductController::class, 'update']);
     Route::delete('products/{product}', [ProductController::class, 'destroy']);
+    Route::get('seller/products', [ProductController::class, 'sellerIndex']);
+    Route::patch('products/{product}/toggle-status', [ProductController::class, 'toggleStatus']);
 });
 
 /*ADMIN ROUTES*/

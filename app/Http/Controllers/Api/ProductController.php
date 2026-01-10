@@ -6,12 +6,25 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Product;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
 
-class ProductController extends Controller
-{
-    public function index()
+    class ProductController extends Controller
     {
-        return Product::with('category', 'user')->get();
+        public function index()
+    {
+        return Product::with('category', 'user')
+            ->where('status', 'active')
+            ->where('stock', '>', 0)
+            ->get();
+    }
+
+    public function sellerIndex(Request $request)
+    {
+        $perPage = $request->per_page ?? 4;
+
+        return Product::with('category')
+            ->where('user_id', Auth::id())
+            ->paginate($perPage);
     }
 
     public function store(Request $request)
@@ -31,7 +44,7 @@ class ProductController extends Controller
         }
 
         $product = Product::create([
-            'user_id'     => auth()->id(),
+            'user_id' => Auth::id(),
             'category_id' => $request->category_id,
             'name'        => $request->name,
             'description' => $request->description,
@@ -53,7 +66,7 @@ class ProductController extends Controller
         $product = Product::findOrFail($id);
 
         // 🔐 Cek kepemilikan produk
-        if ($product->user_id !== auth()->id()) {
+        if ($product->user_id !== Auth::id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -89,7 +102,7 @@ class ProductController extends Controller
     {
         $product = Product::findOrFail($id);
 
-        if ($product->user_id !== auth()->id()) {
+        if ($product->user_id !== Auth::id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -101,4 +114,26 @@ class ProductController extends Controller
 
         return response()->json(['message' => 'Produk berhasil dihapus']);
     }
+
+    public function toggleStatus($id)
+    {
+        // Cari produk yang dimiliki penjual login
+        $product = Product::where('id', $id)
+                        ->where('user_id', Auth::id())
+                        ->first();
+
+        if (!$product) {
+            return response()->json(['message' => 'Produk tidak ditemukan atau bukan milik Anda'], 404);
+        }
+
+        // Toggle status
+        $product->status = $product->status === 'active' ? 'inactive' : 'active';
+        $product->save();
+
+        return response()->json([
+            'message' => 'Status produk berhasil diperbarui',
+            'status' => $product->status
+        ]);
+    }
+
 }
