@@ -8,12 +8,17 @@ use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\SellerAuthController;
 
 /*PUBLIC ROUTES*/
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+
+// AUTH SELLER (OTP)
+Route::post('/seller/register', [SellerAuthController::class, 'register']);
+Route::post('/seller/verify-otp', [SellerAuthController::class, 'verifyOtp']);
 
 // PRODUCTS (VIEW)
 Route::get('products', [ProductController::class, 'index']);
@@ -44,6 +49,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('checkout', [TransactionController::class, 'checkout']);
     Route::get('orders/history', [TransactionController::class, 'history']);
     Route::patch('orders/{order}/status', [TransactionController::class, 'updateStatus']);
+    Route::get('/pesanan', [TransactionController::class, 'history']);
+    Route::patch('/pesanan/{id}/status', [TransactionController::class, 'updateStatus']);
+    
+    
 });
 
 /*PENJUAL ROUTES*/

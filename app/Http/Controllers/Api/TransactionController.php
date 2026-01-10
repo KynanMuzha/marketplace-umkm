@@ -8,6 +8,8 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
 
 class TransactionController extends Controller
 {
@@ -145,14 +147,16 @@ class TransactionController extends Controller
         }
 
         $request->validate([
-            'delivery_type'  => 'required|in:DELIVERY,PICKUP',
-            'shipping_cost'  => 'nullable|numeric|min:0',
-            'payment_method' => 'required|in:QRIS,TF_BANK,E_WALLET,COD',
-            'payment_detail' => 'nullable|string',
-            'items'          => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:products,id',
-            'items.*.quantity'   => 'required|integer|min:1',
+            'delivery_type'     => 'required|in:DELIVERY,PICKUP',
+            'shipping_cost'     => 'nullable|numeric|min:0',
+            'payment_method'    => 'required|in:QRIS,TF_BANK,E_WALLET,COD',
+            'payment_detail'    => 'nullable|string',
+            'items'             => 'required|array|min:1',
+            'items.*.product_id'=> 'required|exists:products,id',
+            'items.*.quantity'  => 'required|integer|min:1',
         ]);
+        DB::beginTransaction();
+        try {
 
         $userId = auth()->id();
 
@@ -173,6 +177,13 @@ class TransactionController extends Controller
         if ($cartItems->isEmpty()) {
             return response()->json(['message' => 'Keranjang kosong atau item tidak valid'], 400);
         }
+        // ✅ VALIDASI TAMBAHAN (WAJIB)
+        if ($cartItems->count() !== count($request->items)) {
+            return response()->json([
+                'message' => 'Item checkout tidak sesuai dengan keranjang'
+            ], 400);
+        }
+
 
         // cek stok
         foreach ($cartItems as $item) {
@@ -192,18 +203,65 @@ class TransactionController extends Controller
 
         $total = $subtotal + $shippingCost;
 
-        // saat buat order
+        // ================== PAYMENT ==================
+        $paymentCode = null;
+        $paymentDue  = null;
+        $paymentUrl  = null;
+
+        switch ($request->payment_method) {
+            case 'QRIS':
+                $paymentCode = 'QR-' . strtoupper(uniqid());
+                $paymentDue  = now()->addMinutes(15);
+                $paymentUrl = $paymentCode;
+                break;
+
+            case 'TF_BANK':
+                $paymentCode = 'VA-' . rand(1000000000, 9999999999);
+                $paymentDue  = now()->addHours(24);
+                $paymentUrl  = null; // PENTING
+                break;
+
+            case 'E_WALLET':
+                $paymentCode = 'EW-' . strtoupper(uniqid());
+                $paymentDue  = now()->addMinutes(30);
+                $paymentUrl  = null; // PENTING
+                break;
+
+            case 'COD':
+                $paymentCode = null;
+                $paymentDue  = null;
+                $paymentUrl  = null;
+                break;
+        }
+       if ($request->payment_method === 'COD') {
+            $paymentStatus = 'unpaid';
+            $status = 'processing';   // 🔥 COD langsung diproses
+        } else {
+            $paymentStatus = 'pending';
+            $status = 'pending';      // 🔥 selain COD menunggu pembayaran
+        }
+
+        $paymentDetail = $request->payment_method === 'COD'
+    ? 'COD'
+    : $request->payment_detail;
+
+    $user = auth()->user();
         $order = Order::create([
-            'user_id'         => $userId,
-            'total'           => $total,
-            'shipping_method' => $shippingMethod,
-            'shipping_cost'   => $shippingCost,
-            'payment_method'  => $request->payment_method,
-            'payment_detail'  => $request->payment_detail,
-            'payment_status'  => 'pending',
-            'payment_code'    => rand(100000, 999999), // kode pembayaran 6 digit
-            'payment_due'     => now()->addHours(24),  // tenggat bayar 24 jam
-        ]);
+        'user_id' => $userId,
+        'customer_name' => $request->customer_name ?? null,
+        'customer_address' => $request->customer_address ?? null,
+        'customer_phone' => $request->customer_phone ?? null,
+        'total' => $total,
+        'status' => $status, 
+        'shipping_method' => $shippingMethod,
+        'shipping_cost' => $shippingCost,
+        'payment_method' => $request->payment_method,
+        'payment_detail' => $paymentDetail ?? null,
+        'payment_status' => $paymentStatus, 
+        'payment_code' => $paymentCode,
+        'payment_url' => $paymentUrl,
+        'payment_due' => $paymentDue,
+    ]);
 
         // buat order item & kurangi stok
         foreach ($cartItems as $item) {
@@ -222,36 +280,85 @@ class TransactionController extends Controller
             // hapus dari cart
             $item->delete();
         }
+        DB::commit(); // ✅ SIMPAN PERMANEN
 
-        return response()->json(['message' => 'Checkout berhasil', 'order' => $order]);
+        return response()->json([
+            'message' => 'Checkout berhasil',
+            'order' => $order->load('items.product')
+        ]);
+    } 
+
+    catch (\Exception $e) {
+        DB::rollBack();
+        \Log::error('Checkout error: '.$e->getMessage(), [
+            'user_id' => auth()->id(),
+            'payload' => $request->all()
+        ]);
+        return response()->json([
+            'message' => 'Checkout gagal',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 
     // 5️⃣ Riwayat transaksi (pembeli saja)
-    public function history()
+    public function history(Request $request)
     {
         if (auth()->user()->role !== 'pembeli') {
             return response()->json(['message' => 'Hanya pembeli yang bisa melihat riwayat transaksi.'], 403);
         }
 
-        $orders = Order::with('items.product')
+        $status = $request->query('status');
+
+        $orders = Order::with(['items.product', 'items.product.user'])
             ->where('user_id', auth()->id())
+            ->when($status, function ($q) use ($status) {
+                $q->where('status', $status);
+            })
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return response()->json($orders);
+        return response()->json([
+            'data' => $orders->map(function ($order) {
+                return [
+                    'id' => $order->id,
+                    'invoice' => 'INV-' . str_pad($order->id, 6, '0', STR_PAD_LEFT),
+                    'product' => $order->items->first()->product->name ?? '-',
+                    'seller' => $order->items->first()->product->user->name ?? '-',
+                    'price' => $order->total,
+                    'payment_method' => $order->payment_method,
+                    'status' => [
+                        'code' => $order->status,
+                        'label' => match($order->status) {
+                            'pending' => 'Menunggu Pembayaran',
+                            'processing' => 'Diproses',
+                            'shipped' => 'Dikirim',
+                            'completed' => 'Selesai',
+                            'cancelled' => 'Dibatalkan'
+                        }
+                        ],
+                    'created_at' => $order->created_at
+                ];
+            })
+        ]);
     }
+
 
     // 6️⃣ Update status pesanan (admin/penjual)
     public function updateStatus(Request $request, $orderId)
     {
         $request->validate([
-            'status' => 'required|in:menunggu,diproses,dikirim,selesai'
+            'status' => 'required|in:pending,processing,shipped,completed,cancelled'
         ]);
 
         $order = Order::findOrFail($orderId);
         $order->status = $request->status;
         $order->save();
 
-        return response()->json(['message' => 'Status pesanan berhasil diperbarui', 'order' => $order]);
+        return response()->json([
+            'message' => 'Status pesanan berhasil diperbarui',
+            'order' => $order
+        ]);
     }
+
 }

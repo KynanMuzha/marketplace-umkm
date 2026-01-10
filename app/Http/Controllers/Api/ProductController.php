@@ -9,9 +9,24 @@ use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return Product::with('category', 'user')->get();
+        try {
+            $query = Product::with('category', 'user');
+
+            // Jika ada query category, filter berdasarkan nama kategori
+            if ($request->has('category')) {
+                $categoryName = $request->query('category');
+                $query->whereHas('category', function ($q) use ($categoryName) {
+                    $q->where('name', $categoryName);
+                });
+            }
+
+            $products = $query->get();
+            return response()->json($products);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     public function store(Request $request)
