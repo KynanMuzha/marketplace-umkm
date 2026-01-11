@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\SellerAuthController;
+use App\Http\Controllers\Api\SellerOrderController;
 
 /*PUBLIC ROUTES*/
 Route::post('/register', [AuthController::class, 'register']);
@@ -62,6 +63,11 @@ Route::middleware(['auth:sanctum', RoleMiddleware::class . ':penjual'])->group(f
     Route::delete('products/{product}', [ProductController::class, 'destroy']);
     Route::get('seller/products', [ProductController::class, 'sellerIndex']);
     Route::patch('products/{product}/toggle-status', [ProductController::class, 'toggleStatus']);
+    Route::get('seller/orders', [SellerOrderController::class, 'index']);
+    Route::get('seller/orders/{id}', [SellerOrderController::class, 'show']);
+    Route::patch('seller/orders/{id}/status', [SellerOrderController::class, 'updateStatus']);
+    Route::get('/seller/orders/{id}/shipping-label',[SellerOrderController::class, 'downloadShippingLabel']);
+
 });
 
 /*ADMIN ROUTES*/

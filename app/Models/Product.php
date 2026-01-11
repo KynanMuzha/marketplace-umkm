@@ -19,4 +19,10 @@ class Product extends Model
     {
         return $this->belongsTo(Category::class)->withDefault();
     }
+
+    public function product()
+    {
+        return $this->belongsTo(Product::class);
+    }
+
 }
