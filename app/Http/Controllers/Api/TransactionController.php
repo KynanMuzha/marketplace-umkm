@@ -320,13 +320,23 @@ class TransactionController extends Controller
 
         return response()->json([
             'data' => $orders->map(function ($order) {
+
+                $firstItem = $order->items->first();
+
                 return [
                     'id' => $order->id,
                     'invoice' => 'INV-' . str_pad($order->id, 6, '0', STR_PAD_LEFT),
-                    'product' => $order->items->first()->product->name ?? '-',
-                    'seller' => $order->items->first()->product->user->name ?? '-',
+
+                    // 🔥 AMAN JIKA ITEMS KOSONG
+                    'product' => $firstItem?->product?->name ?? '-',
+                    'seller' => $firstItem?->product?->user?->name ?? '-',
+
                     'price' => $order->total,
                     'payment_method' => $order->payment_method,
+                    'payment_status' => $order->payment_status,
+                    'payment_code' => $order->payment_code,
+                    'payment_due' => $order->payment_due,
+
                     'status' => [
                         'code' => $order->status,
                         'label' => match($order->status) {
@@ -334,9 +344,11 @@ class TransactionController extends Controller
                             'processing' => 'Diproses',
                             'shipped' => 'Dikirim',
                             'completed' => 'Selesai',
-                            'cancelled' => 'Dibatalkan'
+                            'cancelled' => 'Dibatalkan',
+                            default => '-'
                         }
-                        ],
+                    ],
+
                     'created_at' => $order->created_at
                 ];
             })

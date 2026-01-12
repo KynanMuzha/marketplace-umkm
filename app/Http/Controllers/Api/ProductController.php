@@ -14,8 +14,14 @@ class ProductController extends Controller
         try {
             $query = Product::with('category', 'user');
 
-            // Jika ada query category, filter berdasarkan nama kategori
-            if ($request->has('category')) {
+            // 🔍 FILTER SEARCH (nama produk)
+            if ($request->filled('search')) {
+                $search = $request->query('search');
+                $query->where('name', 'like', "%{$search}%");
+            }
+
+            // 🏷 FILTER CATEGORY (berdasarkan nama)
+            if ($request->filled('category')) {
                 $categoryName = $request->query('category');
                 $query->whereHas('category', function ($q) use ($categoryName) {
                     $q->where('name', $categoryName);
@@ -23,9 +29,13 @@ class ProductController extends Controller
             }
 
             $products = $query->get();
+
             return response()->json($products);
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json([
+                'error' => 'Gagal mengambil produk',
+                'message' => $e->getMessage()
+            ], 500);
         }
     }
 
