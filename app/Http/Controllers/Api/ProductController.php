@@ -17,7 +17,8 @@ class ProductController extends Controller
      * - optional filter category
      */
     public function index(Request $request)
-    {
+{
+    try {
         $query = Product::with('category', 'user')
             ->where('status', 'active')
             ->where('stock', '>', 0);
@@ -30,8 +31,24 @@ class ProductController extends Controller
             });
         }
 
-        return response()->json($query->get());
+        // 🔍 FILTER SEARCH (nama produk)
+        if ($request->filled('search')) {
+            $search = $request->query('search');
+            $query->where('name', 'like', "%{$search}%");
+        }
+
+        $products = $query->get();
+
+        return response()->json($products);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => 'Gagal mengambil produk',
+            'message' => $e->getMessage()
+        ], 500);
     }
+}
+
 
     /**
      * 🔐 LIST PRODUK SELLER (PAGINATION)

@@ -11,12 +11,14 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\SellerAuthController;
 use App\Http\Controllers\Api\SellerOrderController;
 
+use App\Http\Controllers\Api\ChatbotController;
+
 /*PUBLIC ROUTES*/
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
-
+Route::post('/chatbot', [\App\Http\Controllers\Api\ChatbotController::class, 'ask']);
 // AUTH SELLER (OTP)
 Route::post('/seller/register', [SellerAuthController::class, 'register']);
 Route::post('/seller/verify-otp', [SellerAuthController::class, 'verifyOtp']);
