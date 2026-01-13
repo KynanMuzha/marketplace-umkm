@@ -73,4 +73,21 @@ class AdminController extends Controller
 
         return response()->json($report);
     }
+
+    // 🔹 Update status pesanan
+    public function updateOrderStatus(Request $request, Order $order)
+    {
+        $request->validate([
+            'status' => 'required|in:pending,processing,shipped,completed,cancelled'
+        ]);
+
+        $order->update([
+            'status' => $request->status
+        ]);
+
+        return response()->json([   
+            'message' => 'Status pesanan berhasil diperbarui',
+            'order' => $order
+        ]);
+    }
 }

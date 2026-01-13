@@ -75,16 +75,25 @@ Route::middleware(['auth:sanctum', RoleMiddleware::class . ':penjual'])->group(f
 /*ADMIN ROUTES*/
 Route::middleware(['auth:sanctum', RoleMiddleware::class . ':admin'])->group(function () {
 
+    // CATEGORY
     Route::post('admin/categories', [CategoryController::class, 'store']);
     Route::put('admin/categories/{category}', [CategoryController::class, 'update']);
     Route::delete('admin/categories/{category}', [CategoryController::class, 'destroy']);
+    Route::get('admin/categories', [CategoryController::class, 'index']);
+    Route::get('admin/categories/{category}', [CategoryController::class, 'show']);
 
+    // USERS
     Route::get('admin/users', [AdminController::class, 'listUsers']);
     Route::get('admin/users/{user}', [AdminController::class, 'showUser']);
     Route::patch('admin/users/{user}', [AdminController::class, 'updateUser']);
     Route::delete('admin/users/{user}', [AdminController::class, 'deleteUser']);
 
+    // ORDERS
     Route::get('admin/orders', [AdminController::class, 'allOrders']);
     Route::get('admin/orders/{order}', [AdminController::class, 'showOrder']);
+    Route::patch('admin/orders/{order}/status', [AdminController::class, 'updateOrderStatus']);
+
+    // REPORT
     Route::get('admin/reports/sales', [AdminController::class, 'salesReport']);
 });
+
