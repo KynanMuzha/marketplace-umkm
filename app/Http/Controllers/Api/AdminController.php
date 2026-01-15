@@ -44,7 +44,21 @@ class AdminController extends Controller
     // 🔹 Monitoring transaksi
     public function allOrders()
     {
-        $orders = Order::with('items.product','user')->orderBy('created_at','desc')->get();
+        $orders = Order::with('items.product')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($order) {
+                return [
+                    'id' => $order->id,
+                    'customer_name' => $order->customer_name, // ✅ INI YANG DIPAKAI
+                    'total' => $order->total,
+                    'status' => $order->status,
+                    'payment_proof' => $order->payment_proof, // tambahkan ini
+                    'payment_method' => $order->payment_method,
+                    'created_at' => $order->created_at,
+                ];
+            });
+
         return response()->json($orders);
     }
 

@@ -10,42 +10,45 @@ use Illuminate\Support\Facades\Auth;
 
 class ProductController extends Controller
 {
-    /**
-     * 🟢 LIST PRODUK (BUYER)
-     * - hanya active
-     * - stok > 0
-     * - optional filter category
-     */
+    
     public function index(Request $request)
 {
     try {
-        $query = Product::with('category', 'user')
-            ->where('status', 'active')
-            ->where('stock', '>', 0);
+        $query = Product::query();
 
-        // filter kategori (optional)
-        if ($request->has('category')) {
-            $categoryName = $request->query('category');
-            $query->whereHas('category', function ($q) use ($categoryName) {
-                $q->where('name', $categoryName);
-            });
+        // pastikan kolom ada sebelum dipakai
+        if (\Schema::hasColumn('products', 'status')) {
+            $query->where('status', 'active');
         }
 
-        // 🔍 FILTER SEARCH (nama produk)
+        if (\Schema::hasColumn('products', 'stock')) {
+            $query->whereNotNull('stock')->where('stock', '>', 0);
+        }
+
+        // relasi hanya jika method ada
+        if (method_exists(Product::class, 'category')) {
+            $query->with('category');
+        }
+
+        if (method_exists(Product::class, 'user')) {
+            $query->with('user');
+        }
+
+        // filter search
         if ($request->filled('search')) {
-            $search = $request->query('search');
-            $query->where('name', 'like', "%{$search}%");
+            $query->where('name', 'like', '%' . $request->search . '%');
         }
 
-        $products = $query->get();
+        // filter berdasarkan kategori
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
 
-        return response()->json($products);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'error' => 'Gagal mengambil produk',
-            'message' => $e->getMessage()
-        ], 500);
+        return response()->json($query->get());
+    }
+    catch (\Throwable $e) {
+        \Log::error('PRODUCT ERROR: ' . $e->getMessage());
+        return response()->json(['message' => 'Server error'], 500);
     }
 }
 
@@ -54,13 +57,20 @@ class ProductController extends Controller
      * 🔐 LIST PRODUK SELLER (PAGINATION)
      */
     public function sellerIndex(Request $request)
-    {
-        $perPage = $request->per_page ?? 4;
+{
+    $perPage = $request->per_page ?? 4;
 
-        return Product::with('category')
-            ->where('user_id', Auth::id())
-            ->paginate($perPage);
+    $query = Product::with('category')
+        ->where('user_id', Auth::id());
+
+    // 🔍 SEARCH PRODUK SELLER
+    if ($request->filled('search')) {
+        $query->where('name', 'like', '%' . $request->search . '%');
     }
+
+    return $query->paginate($perPage);
+}
+
 
     /**
      * ➕ TAMBAH PRODUK

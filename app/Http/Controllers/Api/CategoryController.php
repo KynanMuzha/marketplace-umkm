@@ -14,6 +14,16 @@ class CategoryController extends Controller
         return Category::select('id', 'name')->get();
     }
 
+    public function products($id)
+    {
+        $category = Category::with(['products' => function ($q) {
+            $q->where('status', 'active')
+            ->where('stock', '>', 0);
+        }])->findOrFail($id);
+
+        return response()->json($category->products);
+    }
+
     // ADMIN: tambah category
     public function store(Request $request)
     {
@@ -48,4 +58,11 @@ class CategoryController extends Controller
         $category->delete();
         return response()->json(['message' => 'Kategori berhasil dihapus']);
     }
+
+    // PUBLIC: ambil 1 kategori (nama kategori)
+public function show($id)
+{
+    return Category::select('id', 'name')->findOrFail($id);
+}
+
 }

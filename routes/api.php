@@ -11,14 +11,14 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\SellerAuthController;
 use App\Http\Controllers\Api\SellerOrderController;
 
-use App\Http\Controllers\Api\ChatbotController;
-
-/*PUBLIC ROUTES*/
+/*==========================
+=        PUBLIC ROUTES      =
+===========================*/
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
-Route::post('/chatbot', [\App\Http\Controllers\Api\ChatbotController::class, 'ask']);
+
 // AUTH SELLER (OTP)
 Route::post('/seller/register', [SellerAuthController::class, 'register']);
 Route::post('/seller/verify-otp', [SellerAuthController::class, 'verifyOtp']);
@@ -27,10 +27,14 @@ Route::post('/seller/verify-otp', [SellerAuthController::class, 'verifyOtp']);
 Route::get('products', [ProductController::class, 'index']);
 Route::get('products/{product}', [ProductController::class, 'show']);
 
-// ✅ CATEGORY (PUBLIC) — INI YANG KURANG
+// CATEGORY (PUBLIC)
 Route::get('categories', [CategoryController::class, 'index']);
+Route::get('/categories/{id}', [CategoryController::class, 'show']); 
+Route::get('categories/{id}/products', [CategoryController::class, 'products']);
 
-/*AUTHENTICATED ROUTES*/
+/*===============================
+=        AUTHENTICATED ROUTES   =
+===============================*/
 Route::middleware('auth:sanctum')->group(function () {
 
     // AUTH
@@ -43,36 +47,44 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar']);
     Route::delete('/profile/avatar', [ProfileController::class, 'deleteAvatar']);
 
-
-    // CART & TRANSACTION
+    // CART & TRANSACTION (PEMBELI)
     Route::post('cart/add', [TransactionController::class, 'addToCart']);
     Route::patch('cart/update', [TransactionController::class, 'updateCartQuantity']);
     Route::get('cart', [TransactionController::class, 'cart']);
     Route::delete('cart/{id}', [TransactionController::class, 'removeFromCart']);
     Route::post('checkout', [TransactionController::class, 'checkout']);
     Route::get('orders/history', [TransactionController::class, 'history']);
-    Route::patch('orders/{order}/status', [TransactionController::class, 'updateStatus']);
-    Route::get('/pesanan', [TransactionController::class, 'history']);
-    Route::patch('/pesanan/{id}/status', [TransactionController::class, 'updateStatus']);
-    
-    
+    Route::get('/pesanan', [TransactionController::class, 'history']); // tetap ada sesuai request
+    Route::post('orders/{order}/upload-proof', [TransactionController::class, 'uploadProof']); // upload bukti pembayaran
+
+    // ADMIN/PENJUAL ROUTES (update status & verify payment)
+    Route::middleware([RoleMiddleware::class . ':admin,penjual'])->group(function() {
+        Route::patch('orders/{order}/status', [TransactionController::class, 'updateStatus']);
+        Route::patch('orders/{order}/verify-payment', [TransactionController::class, 'verifyPayment']);
+    });
 });
 
-/*PENJUAL ROUTES*/
+/*==========================
+=        PENJUAL ROUTES     =
+===========================*/
 Route::middleware(['auth:sanctum', RoleMiddleware::class . ':penjual'])->group(function () {
+    // Produk
     Route::post('products', [ProductController::class, 'store']);
     Route::put('products/{product}', [ProductController::class, 'update']);
     Route::delete('products/{product}', [ProductController::class, 'destroy']);
     Route::get('seller/products', [ProductController::class, 'sellerIndex']);
     Route::patch('products/{product}/toggle-status', [ProductController::class, 'toggleStatus']);
+
+    // Pesanan penjual
     Route::get('seller/orders', [SellerOrderController::class, 'index']);
     Route::get('seller/orders/{id}', [SellerOrderController::class, 'show']);
     Route::patch('seller/orders/{id}/status', [SellerOrderController::class, 'updateStatus']);
-    Route::get('/seller/orders/{id}/shipping-label',[SellerOrderController::class, 'downloadShippingLabel']);
-
+    Route::get('/seller/orders/{id}/shipping-label', [SellerOrderController::class, 'downloadShippingLabel']);
 });
 
-/*ADMIN ROUTES*/
+/*==========================
+=        ADMIN ROUTES       =
+===========================*/
 Route::middleware(['auth:sanctum', RoleMiddleware::class . ':admin'])->group(function () {
 
     // CATEGORY
@@ -96,4 +108,3 @@ Route::middleware(['auth:sanctum', RoleMiddleware::class . ':admin'])->group(fun
     // REPORT
     Route::get('admin/reports/sales', [AdminController::class, 'salesReport']);
 });
-
